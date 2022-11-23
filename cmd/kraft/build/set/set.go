@@ -46,7 +46,7 @@ import (
 	"kraftkit.sh/log"
 	"kraftkit.sh/make"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/schema"
+	"kraftkit.sh/unikraft/app"
 )
 
 type SetOptions struct {
@@ -67,7 +67,7 @@ func SetCmd(f *cmdfactory.Factory) *cobra.Command {
 
 	cmd, err := cmdutil.NewCmd(f, "set")
 	if err != nil {
-		panic("could not initialize 'kraft build set' commmand")
+		panic("could not initialize 'kraft build set' command")
 	}
 
 	cmd.Short = "Set a variable for a Unikraft project"
@@ -144,22 +144,22 @@ func setRun(copts *SetOptions, workdir string, confOpts []string) error {
 	}
 
 	// Initialize at least the configuration options for a project
-	projectOpts, err := schema.NewProjectOptions(
+	projectOpts, err := app.NewProjectOptions(
 		nil,
-		schema.WithLogger(plog),
-		schema.WithWorkingDirectory(workdir),
-		schema.WithDefaultConfigPath(),
-		schema.WithPackageManager(&pm),
-		schema.WithResolvedPaths(true),
-		schema.WithDotConfig(true),
-		schema.WithConfig(confOpts),
+		app.WithLogger(plog),
+		app.WithWorkingDirectory(workdir),
+		app.WithDefaultConfigPath(),
+		app.WithPackageManager(&pm),
+		app.WithResolvedPaths(true),
+		app.WithDotConfig(true),
+		app.WithConfig(confOpts),
 	)
 	if err != nil {
 		return err
 	}
 
 	// Interpret the application
-	project, err := schema.NewApplicationFromOptions(projectOpts)
+	project, err := app.NewApplicationFromOptions(projectOpts)
 	if err != nil {
 		return err
 	}

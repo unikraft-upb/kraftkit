@@ -41,7 +41,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"kraftkit.sh/config"
-	"kraftkit.sh/schema"
 	"kraftkit.sh/unikraft"
 
 	"kraftkit.sh/internal/cmdfactory"
@@ -95,7 +94,7 @@ func PkgCmd(f *cmdfactory.Factory) *cobra.Command {
 		),
 	)
 	if err != nil {
-		panic("could not initialize 'kraft pkg' commmand")
+		panic("could not initialize 'kraft pkg' command")
 	}
 
 	opts := &pkgOptions{
@@ -273,21 +272,21 @@ func pkgRun(opts *pkgOptions, workdir string) error {
 		}
 	}
 
-	projectOpts, err := schema.NewProjectOptions(
+	projectOpts, err := app.NewProjectOptions(
 		nil,
-		schema.WithLogger(plog),
-		schema.WithWorkingDirectory(workdir),
-		schema.WithDefaultConfigPath(),
-		schema.WithPackageManager(&pm),
-		schema.WithResolvedPaths(true),
-		schema.WithDotConfig(true),
+		app.WithLogger(plog),
+		app.WithWorkingDirectory(workdir),
+		app.WithDefaultConfigPath(),
+		app.WithPackageManager(&pm),
+		app.WithResolvedPaths(true),
+		app.WithDotConfig(true),
 	)
 	if err != nil {
 		return err
 	}
 
 	// Interpret the application
-	project, err := schema.NewApplicationFromOptions(projectOpts)
+	project, err := app.NewApplicationFromOptions(projectOpts)
 	if err != nil {
 		return err
 	}
@@ -296,7 +295,11 @@ func pkgRun(opts *pkgOptions, workdir string) error {
 	var packages []pack.Package
 
 	// Generate a package for every matching requested target
-	for _, targ := range project.Targets {
+	targets, err := project.Targets()
+	if err != nil {
+		return err
+	}
+	for _, targ := range targets {
 		switch true {
 		case
 			// If no arguments are supplied
@@ -393,7 +396,7 @@ func pkgRun(opts *pkgOptions, workdir string) error {
 func initAppPackage(ctx context.Context,
 	project *app.ApplicationConfig,
 	targ target.TargetConfig,
-	projectOpts *schema.ProjectOptions,
+	projectOpts *app.ProjectOptions,
 	pm packmanager.PackageManager,
 	opts *pkgOptions,
 ) ([]pack.Package, error) {
@@ -424,11 +427,16 @@ func initAppPackage(ctx context.Context,
 
 	name := opts.Name
 
+	targets, err := project.Targets()
+	if err != nil {
+		return nil, err
+	}
+
 	// This is a built in naming convention format, which for now allows us to
-	// differantiate between different targets.  This should be further discussed
+	// differentiate between different targets.  This should be further discussed
 	// the community if this is the best approach.  This can ultimately be
 	// overwritten using the --tag flag.
-	if len(name) == 0 && len(project.Targets) == 1 {
+	if len(name) == 0 && len(targets) == 1 {
 		name = project.Name()
 	} else if len(name) == 0 {
 		name = project.Name() + "-" + targ.Name()

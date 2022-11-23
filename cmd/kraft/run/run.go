@@ -47,7 +47,7 @@ import (
 	machinedriver "kraftkit.sh/machine/driver"
 	machinedriveropts "kraftkit.sh/machine/driveropts"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/schema"
+	"kraftkit.sh/unikraft/app"
 	"kraftkit.sh/utils"
 
 	"kraftkit.sh/internal/cmdfactory"
@@ -86,7 +86,7 @@ func RunCmd(f *cmdfactory.Factory) *cobra.Command {
 		cmdutil.WithSubcmds(),
 	)
 	if err != nil {
-		panic("could not initialize 'kraft run' commmand")
+		panic("could not initialize 'kraft run' command")
 	}
 
 	opts := &runOptions{
@@ -261,7 +261,7 @@ func runRun(opts *runOptions, args ...string) error {
 
 	// Determine if more than one positional arguments have been provided.  If
 	// this is the case, everything after the first position argument are kernel
-	// parameters which should be passed apporpriately.
+	// parameters which should be passed appropriately.
 	if len(args) > 1 {
 		entity = args[0]
 		kernelArgs = args[1:]
@@ -270,7 +270,7 @@ func runRun(opts *runOptions, args ...string) error {
 	}
 
 	// a). path to a project
-	if len(entity) > 0 && schema.IsWorkdirInitialized(entity) {
+	if len(entity) > 0 && app.IsWorkdirInitialized(entity) {
 		workdir = entity
 
 		// Otherwise use the current working directory
@@ -280,7 +280,7 @@ func runRun(opts *runOptions, args ...string) error {
 			return err
 		}
 
-		if schema.IsWorkdirInitialized(cwd) {
+		if app.IsWorkdirInitialized(cwd) {
 			workdir = cwd
 			kernelArgs = args
 		}
@@ -289,21 +289,21 @@ func runRun(opts *runOptions, args ...string) error {
 	// b). use a defined working directory as a Unikraft project
 	if len(workdir) > 0 {
 		target := opts.Target
-		projectOpts, err := schema.NewProjectOptions(
+		projectOpts, err := app.NewProjectOptions(
 			nil,
-			schema.WithLogger(plog),
-			schema.WithWorkingDirectory(workdir),
-			schema.WithDefaultConfigPath(),
-			// schema.WithPackageManager(&pm),
-			schema.WithResolvedPaths(true),
-			schema.WithDotConfig(false),
+			app.WithLogger(plog),
+			app.WithWorkingDirectory(workdir),
+			app.WithDefaultConfigPath(),
+			// app.WithPackageManager(&pm),
+			app.WithResolvedPaths(true),
+			app.WithDotConfig(false),
 		)
 		if err != nil {
 			return err
 		}
 
 		// Interpret the application
-		app, err := schema.NewApplicationFromOptions(projectOpts)
+		app, err := app.NewApplicationFromOptions(projectOpts)
 		if err != nil {
 			return err
 		}
@@ -371,7 +371,7 @@ func runRun(opts *runOptions, args ...string) error {
 		// c). Is the provided first position argument a binary image?
 	} else if f, err := os.Stat(entity); err == nil && !f.IsDir() {
 		if len(opts.Architecture) == 0 || len(opts.Platform) == 0 {
-			return fmt.Errorf("cannot use `kraft run KERNEL` without specifiying --arch and --plat")
+			return fmt.Errorf("cannot use `kraft run KERNEL` without specifying --arch and --plat")
 		}
 
 		mopts = append(mopts,

@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"kraftkit.sh/config"
+	"kraftkit.sh/unikraft/app"
 
 	"kraftkit.sh/internal/cmdfactory"
 	"kraftkit.sh/internal/cmdutil"
@@ -43,7 +44,6 @@ import (
 	"kraftkit.sh/log"
 	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/schema"
 	"kraftkit.sh/unikraft"
 	"kraftkit.sh/utils"
 )
@@ -74,7 +74,7 @@ func ListCmd(f *cmdfactory.Factory) *cobra.Command {
 
 	cmd, err := cmdutil.NewCmd(f, "list")
 	if err != nil {
-		panic("could not initialize 'kraft pkg list' commmand")
+		panic("could not initialize 'kraft pkg list' command")
 	}
 
 	cmd.Short = "List installed Unikraft component packages"
@@ -192,19 +192,19 @@ func listRun(opts *ListOptions, workdir string) error {
 
 	// List pacakges part of a project
 	if len(workdir) > 0 {
-		projectOpts, err := schema.NewProjectOptions(
+		projectOpts, err := app.NewProjectOptions(
 			nil,
-			schema.WithLogger(plog),
-			schema.WithWorkingDirectory(workdir),
-			schema.WithDefaultConfigPath(),
-			schema.WithPackageManager(&pm),
+			app.WithLogger(plog),
+			app.WithWorkingDirectory(workdir),
+			app.WithDefaultConfigPath(),
+			app.WithPackageManager(&pm),
 		)
 		if err != nil {
 			return err
 		}
 
 		// Interpret the application
-		app, err := schema.NewApplicationFromOptions(projectOpts)
+		app, err := app.NewApplicationFromOptions(projectOpts)
 		if err != nil {
 			return err
 		}

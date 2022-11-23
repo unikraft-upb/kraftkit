@@ -44,7 +44,7 @@ import (
 	"kraftkit.sh/log"
 	"kraftkit.sh/make"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/schema"
+	"kraftkit.sh/unikraft/app"
 )
 
 type FetchOptions struct {
@@ -66,7 +66,7 @@ func FetchCmd(f *cmdfactory.Factory) *cobra.Command {
 
 	cmd, err := cmdutil.NewCmd(f, "fetch")
 	if err != nil {
-		panic("could not initialize 'kraft build fetch' commmand")
+		panic("could not initialize 'kraft build fetch' command")
 	}
 
 	cmd.Short = "Fetch a Unikraft unikernel's dependencies"
@@ -112,21 +112,21 @@ func fetchRun(copts *FetchOptions, workdir string) error {
 	}
 
 	// Initialize at least the configuration options for a project
-	projectOpts, err := schema.NewProjectOptions(
+	projectOpts, err := app.NewProjectOptions(
 		nil,
-		schema.WithLogger(plog),
-		schema.WithWorkingDirectory(workdir),
-		schema.WithDefaultConfigPath(),
-		schema.WithPackageManager(&pm),
-		schema.WithResolvedPaths(true),
-		schema.WithDotConfig(false),
+		app.WithLogger(plog),
+		app.WithWorkingDirectory(workdir),
+		app.WithDefaultConfigPath(),
+		app.WithPackageManager(&pm),
+		app.WithResolvedPaths(true),
+		app.WithDotConfig(false),
 	)
 	if err != nil {
 		return err
 	}
 
 	// Interpret the application
-	project, err := schema.NewApplicationFromOptions(projectOpts)
+	project, err := app.NewApplicationFromOptions(projectOpts)
 	if err != nil {
 		return err
 	}

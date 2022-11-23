@@ -41,7 +41,7 @@ import (
 	"kraftkit.sh/config"
 	"kraftkit.sh/exec"
 	"kraftkit.sh/pack"
-	"kraftkit.sh/schema"
+	"kraftkit.sh/unikraft"
 
 	"kraftkit.sh/internal/cmdfactory"
 	"kraftkit.sh/internal/cmdutil"
@@ -54,7 +54,6 @@ import (
 	"kraftkit.sh/tui/paraprogress"
 	"kraftkit.sh/unikraft/app"
 	"kraftkit.sh/unikraft/component"
-	"kraftkit.sh/unikraft/target"
 
 	// Subcommands
 	"kraftkit.sh/cmd/kraft/build/clean"
@@ -105,7 +104,7 @@ func BuildCmd(f *cmdfactory.Factory) *cobra.Command {
 		),
 	)
 	if err != nil {
-		panic("could not initialize 'kraft build' commmand")
+		panic("could not initialize 'kraft build' command")
 	}
 
 	opts := &buildOptions{
@@ -227,6 +226,13 @@ func BuildCmd(f *cmdfactory.Factory) *cobra.Command {
 		"Do not run Unikraft's configure step before building",
 	)
 
+	cmd.Flags().BoolVar(
+		&opts.NoPrepare,
+		"no-prepare",
+		false,
+		"Do not run Unikraft's prepare step before building",
+	)
+
 	return cmd
 }
 
@@ -249,25 +255,25 @@ func buildRun(opts *buildOptions, workdir string) error {
 	}
 
 	// Initialize at least the configuration options for a project
-	projectOpts, err := schema.NewProjectOptions(
+	projectOpts, err := app.NewProjectOptions(
 		nil,
-		schema.WithLogger(plog),
-		schema.WithWorkingDirectory(workdir),
-		schema.WithDefaultConfigPath(),
-		schema.WithPackageManager(&pm),
-		schema.WithResolvedPaths(true),
-		schema.WithDotConfig(false),
+		app.WithLogger(plog),
+		app.WithWorkingDirectory(workdir),
+		app.WithDefaultConfigPath(),
+		app.WithPackageManager(&pm),
+		app.WithResolvedPaths(true),
+		app.WithDotConfig(false),
 	)
 	if err != nil {
 		return err
 	}
 
-	if !schema.IsWorkdirInitialized(workdir) {
+	if !app.IsWorkdirInitialized(workdir) {
 		return fmt.Errorf("cannot build uninitialized project! start with: ukbuild init")
 	}
 
 	// Interpret the application
-	project, err := schema.NewApplicationFromOptions(projectOpts)
+	project, err := app.NewApplicationFromOptions(projectOpts)
 	if err != nil {
 		return err
 	}
@@ -282,7 +288,124 @@ func buildRun(opts *buildOptions, workdir string) error {
 	var processes []*paraprogress.Process
 	var searches []*processtree.ProcessTreeItem
 
-	for _, component := range project.Components() {
+	_, err = project.Components()
+	if err != nil && project.Template().Name() != "" {
+		var packages []pack.Package
+		search := processtree.NewProcessTreeItem(
+			fmt.Sprintf("finding %s/%s:%s...", project.Template().Type(), project.Template().Name(), project.Template().Version()), "",
+			func(l log.Logger) error {
+				// Apply the incoming logger which is tailored to display as a
+				// sub-terminal within the fancy processtree.
+				pm.ApplyOptions(
+					packmanager.WithLogger(l),
+				)
+
+				packages, err = pm.Catalog(packmanager.CatalogQuery{
+					Name:    project.Template().Name(),
+					Types:   []unikraft.ComponentType{unikraft.ComponentTypeApp},
+					Version: project.Template().Version(),
+					NoCache: opts.NoCache,
+				})
+				if err != nil {
+					return err
+				}
+
+				if len(packages) == 0 {
+					return fmt.Errorf("could not find: %s", project.Template().Name())
+				} else if len(packages) > 1 {
+					return fmt.Errorf("too many options for %s", project.Template().Name())
+				}
+
+				return nil
+			},
+		)
+
+		treemodel, err := processtree.NewProcessTree(
+			[]processtree.ProcessTreeOption{
+				processtree.WithFailFast(true),
+				processtree.WithRenderer(false),
+				processtree.WithLogger(plog),
+			},
+			[]*processtree.ProcessTreeItem{search}...,
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := treemodel.Start(); err != nil {
+			return fmt.Errorf("could not complete search: %v", err)
+		}
+
+		proc := paraprogress.NewProcess(
+			fmt.Sprintf("pulling %s", packages[0].Options().TypeNameVersion()),
+			func(l log.Logger, w func(progress float64)) error {
+				// Apply the incoming logger which is tailored to display as a
+				// sub-terminal within the fancy processtree.
+				packages[0].ApplyOptions(
+					pack.WithLogger(l),
+				)
+
+				return packages[0].Pull(
+					pack.WithPullProgressFunc(w),
+					pack.WithPullWorkdir(workdir),
+					pack.WithPullLogger(l),
+					// pack.WithPullChecksum(!opts.NoChecksum),
+					// pack.WithPullCache(!opts.NoCache),
+				)
+			},
+		)
+
+		processes = append(processes, proc)
+
+		paramodel, err := paraprogress.NewParaProgress(
+			processes,
+			paraprogress.IsParallel(parallel),
+			paraprogress.WithRenderer(norender),
+			paraprogress.WithLogger(plog),
+			paraprogress.WithFailFast(true),
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := paramodel.Start(); err != nil {
+			return fmt.Errorf("could not pull all components: %v", err)
+		}
+	}
+
+	if project.Template().Name() != "" {
+		templateWorkdir, err := unikraft.PlaceComponent(workdir, project.Template().Type(), project.Template().Name())
+		if err != nil {
+			return err
+		}
+
+		templateOps, err := app.NewProjectOptions(
+			nil,
+			app.WithLogger(plog),
+			app.WithWorkingDirectory(templateWorkdir),
+			app.WithDefaultConfigPath(),
+			app.WithPackageManager(&pm),
+			app.WithResolvedPaths(true),
+			app.WithDotConfig(false),
+		)
+		if err != nil {
+			return err
+		}
+
+		templateProject, err := app.NewApplicationFromOptions(templateOps)
+		if err != nil {
+			return err
+		}
+
+		project = templateProject.MergeTemplate(project)
+	}
+
+	// Overwrite template with user options
+	components, err := project.Components()
+	if err != nil {
+		return err
+	}
+	for _, component := range components {
 		component := component // loop closure
 
 		searches = append(searches, processtree.NewProcessTreeItem(
@@ -295,8 +418,13 @@ func buildRun(opts *buildOptions, workdir string) error {
 				)
 
 				p, err := pm.Catalog(packmanager.CatalogQuery{
-					Name:    component.Name(),
-					Source:  component.Source(),
+					Name: component.Name(),
+					Types: []unikraft.ComponentType{
+						unikraft.ComponentTypeCore,
+						unikraft.ComponentTypeLib,
+						unikraft.ComponentTypePlat,
+						unikraft.ComponentTypeArch,
+					},
 					Version: component.Version(),
 					NoCache: opts.NoCache,
 				})
@@ -381,10 +509,13 @@ func buildRun(opts *buildOptions, workdir string) error {
 
 	processes = []*paraprogress.Process{} // reset
 
-	var targets []target.TargetConfig
+	targets, err := project.Targets()
+	if err != nil {
+		return err
+	}
 
 	// Filter the targets by CLI selection
-	for _, targ := range project.Targets {
+	for _, targ := range targets {
 		switch true {
 		case
 			// If no arguments are supplied
@@ -456,6 +587,23 @@ func buildRun(opts *buildOptions, workdir string) error {
 							exec.WithStderr(l.Output()),
 						),
 					)
+				},
+			))
+		}
+
+		if !opts.NoPrepare {
+			processes = append(processes, paraprogress.NewProcess(
+				fmt.Sprintf("preparing %s (%s)", targ.Name(), targ.ArchPlatString()),
+				func(l log.Logger, w func(progress float64)) error {
+					// Apply the incoming logger which is tailored to display as a
+					// sub-terminal within the fancy processtree.
+					targ.ApplyOptions(
+						component.WithLogger(l),
+					)
+
+					return project.Prepare(append(mopts,
+						make.WithLogger(l),
+					)...)
 				},
 			))
 		}

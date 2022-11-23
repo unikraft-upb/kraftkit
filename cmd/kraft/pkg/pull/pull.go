@@ -47,8 +47,8 @@ import (
 	"kraftkit.sh/log"
 	"kraftkit.sh/pack"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/schema"
 	"kraftkit.sh/tui/paraprogress"
+	"kraftkit.sh/tui/processtree"
 	"kraftkit.sh/unikraft"
 	"kraftkit.sh/unikraft/app"
 )
@@ -82,7 +82,7 @@ func PullCmd(f *cmdfactory.Factory) *cobra.Command {
 
 	cmd, err := cmdutil.NewCmd(f, "pull")
 	if err != nil {
-		panic("could not initialize root commmand")
+		panic("could not initialize root command")
 	}
 
 	cmd.Short = "Pull a Unikraft unikernel and/or its dependencies"
@@ -228,25 +228,136 @@ func pullRun(opts *PullOptions, query string) error {
 	// so we can get a list of components
 	if f, err := os.Stat(query); err == nil && f.IsDir() {
 		workdir = query
-		projectOpts, err := schema.NewProjectOptions(
+		projectOpts, err := app.NewProjectOptions(
 			nil,
-			schema.WithLogger(plog),
-			schema.WithWorkingDirectory(workdir),
-			schema.WithDefaultConfigPath(),
-			schema.WithResolvedPaths(true),
+			app.WithLogger(plog),
+			app.WithWorkingDirectory(workdir),
+			app.WithDefaultConfigPath(),
+			app.WithResolvedPaths(true),
 		)
 		if err != nil {
 			return err
 		}
 
 		// Interpret the application
-		project, err := schema.NewApplicationFromOptions(projectOpts)
+		project, err := app.NewApplicationFromOptions(projectOpts)
 		if err != nil {
 			return err
 		}
 
+		_, err = project.Components()
+		if err != nil {
+			// Pull the template from the package manager
+			var packages []pack.Package
+			search := processtree.NewProcessTreeItem(
+				fmt.Sprintf("finding %s/%s:%s...", project.Template().Type(), project.Template().Name(), project.Template().Version()), "",
+				func(l log.Logger) error {
+					// Apply the incoming logger which is tailored to display as a
+					// sub-terminal within the fancy processtree.
+					pm.ApplyOptions(
+						packmanager.WithLogger(l),
+					)
+
+					packages, err = pm.Catalog(packmanager.CatalogQuery{
+						Name:    project.Template().Name(),
+						Types:   []unikraft.ComponentType{unikraft.ComponentTypeApp},
+						Version: project.Template().Version(),
+						NoCache: opts.NoCache,
+					})
+					if err != nil {
+						return err
+					}
+
+					if len(packages) == 0 {
+						return fmt.Errorf("could not find: %s", project.Template().Name())
+					} else if len(packages) > 1 {
+						return fmt.Errorf("too many options for %s", project.Template().Name())
+					}
+					return nil
+				},
+			)
+
+			treemodel, err := processtree.NewProcessTree(
+				[]processtree.ProcessTreeOption{
+					processtree.WithFailFast(true),
+					processtree.WithRenderer(false),
+					processtree.WithLogger(plog),
+				},
+				[]*processtree.ProcessTreeItem{search}...,
+			)
+			if err != nil {
+				return err
+			}
+
+			if err := treemodel.Start(); err != nil {
+				return fmt.Errorf("could not complete search: %v", err)
+			}
+
+			proc := paraprogress.NewProcess(
+				fmt.Sprintf("pulling %s", packages[0].Options().TypeNameVersion()),
+				func(l log.Logger, w func(progress float64)) error {
+					// Apply the incoming logger which is tailored to display as a
+					// sub-terminal within the fancy processtree.
+					packages[0].ApplyOptions(
+						pack.WithLogger(l),
+					)
+
+					return packages[0].Pull(
+						pack.WithPullProgressFunc(w),
+						pack.WithPullWorkdir(workdir),
+						pack.WithPullLogger(l),
+						// pack.WithPullChecksum(!opts.NoChecksum),
+						// pack.WithPullCache(!opts.NoCache),
+					)
+				},
+			)
+
+			processes = append(processes, proc)
+
+			paramodel, err := paraprogress.NewParaProgress(
+				processes,
+				paraprogress.WithLogger(plog),
+				paraprogress.WithFailFast(true),
+			)
+			if err != nil {
+				return err
+			}
+
+			if err := paramodel.Start(); err != nil {
+				return fmt.Errorf("could not pull all components: %v", err)
+			}
+		}
+
+		templateWorkdir, err := unikraft.PlaceComponent(workdir, project.Template().Type(), project.Template().Name())
+		if err != nil {
+			return err
+		}
+
+		templateOps, err := app.NewProjectOptions(
+			nil,
+			app.WithLogger(plog),
+			app.WithWorkingDirectory(templateWorkdir),
+			app.WithDefaultConfigPath(),
+			app.WithPackageManager(&pm),
+			app.WithResolvedPaths(true),
+			app.WithDotConfig(false),
+		)
+		if err != nil {
+			return err
+		}
+
+		templateProject, err := app.NewApplicationFromOptions(templateOps)
+		if err != nil {
+			return err
+		}
+
+		project = templateProject.MergeTemplate(project)
 		// List the components
-		for _, c := range project.Components() {
+		components, err := project.Components()
+		if err != nil {
+			return err
+		}
+		for _, c := range components {
 			queries = append(queries, packmanager.CatalogQuery{
 				Name:    c.Name(),
 				Version: c.Version(),

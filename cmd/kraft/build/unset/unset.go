@@ -45,7 +45,7 @@ import (
 	"kraftkit.sh/log"
 	"kraftkit.sh/make"
 	"kraftkit.sh/packmanager"
-	"kraftkit.sh/schema"
+	"kraftkit.sh/unikraft/app"
 )
 
 type UnsetOptions struct {
@@ -66,7 +66,7 @@ func UnsetCmd(f *cmdfactory.Factory) *cobra.Command {
 
 	cmd, err := cmdutil.NewCmd(f, "unset")
 	if err != nil {
-		panic("could not initialize 'kraft build unset' commmand")
+		panic("could not initialize 'kraft build unset' command")
 	}
 
 	cmd.Short = "Unset a variable for a Unikraft project"
@@ -138,22 +138,22 @@ func unsetRun(copts *UnsetOptions, workdir string, confOpts []string) error {
 	}
 
 	// Initialize at least the configuration options for a project
-	projectOpts, err := schema.NewProjectOptions(
+	projectOpts, err := app.NewProjectOptions(
 		nil,
-		schema.WithLogger(plog),
-		schema.WithWorkingDirectory(workdir),
-		schema.WithDefaultConfigPath(),
-		schema.WithPackageManager(&pm),
-		schema.WithResolvedPaths(true),
-		schema.WithDotConfig(true),
-		schema.WithConfig(confOpts),
+		app.WithLogger(plog),
+		app.WithWorkingDirectory(workdir),
+		app.WithDefaultConfigPath(),
+		app.WithPackageManager(&pm),
+		app.WithResolvedPaths(true),
+		app.WithDotConfig(true),
+		app.WithConfig(confOpts),
 	)
 	if err != nil {
 		return err
 	}
 
 	// Interpret the application
-	project, err := schema.NewApplicationFromOptions(projectOpts)
+	project, err := app.NewApplicationFromOptions(projectOpts)
 	if err != nil {
 		return err
 	}
