@@ -111,23 +111,6 @@ $(addprefix $(.PROXY), $(BIN)):
 		-o $(DISTDIR)/$@ \
 		$(WORKDIR)/cmd/$@
 
-# Create an environment where we can build
-.PHONY: container
-container: GO_VERSION         ?= 1.18
-container: DOCKER_BUILD_EXTRA ?=
-container: ENVIRONMENT        ?= myself
-container: IMAGE              ?= $(REGISTRY)/$(ORG)/$(REPO)/$(ENVIRONMENT):$(IMAGE_TAG)
-container: TARGET             ?= base
-container:
-	$(DOCKER) build \
-		--build-arg ORG=$(ORG) \
-		--build-arg REPO=$(REPO) \
-		--build-arg GO_VERSION=$(GO_VERSION) \
-		--tag $(IMAGE) \
-		--target $(TARGET) \
-		--file $(WORKDIR)/buildenvs/$(ENVIRONMENT).Dockerfile \
-		$(DOCKER_BUILD_EXTRA) $(WORKDIR)
-
 # Run an environment where we can build
 .PHONY: devenv
 devenv: DOCKER_RUN_EXTRA ?= -it --name $(REPO)-devenv
