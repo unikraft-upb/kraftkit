@@ -151,6 +151,10 @@ fmt:
 clean:
 	$(GO) clean -cache -i -r
 
+.PHONY: pkgclean
+pkgclean:
+	$(GO) clean -cache -i -r -modcache
+
 .PHONY: properclean
 properclean: ENVIRONMENT ?= myself
 properclean: IMAGE       ?= $(REGISTRY)/$(ORG)/$(REPO)/$(ENVIRONMENT):$(IMAGE_TAG)
