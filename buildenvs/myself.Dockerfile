@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 # Authors: Alexander Jung <alex@unikraft.io>
+#          Cezar Craciunoiu <cezar.craciunoiu@unikraft.io>
 #
 # Copyright (c) 2022, Unikraft GmbH.  All rights reserved.
 #
@@ -40,13 +41,27 @@ ARG GO_VERSION=${GO_VERSION}
 RUN set -xe; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      build-essential \
-      libgit2-dev \
-      make \
-      git; \
+      build-essential=12.9 \
+      libgit2-dev=1.1.0+dfsg.1-4 \
+      make=4.3-4.1 \
+      git=1:2.30.2-1; \
+    apt-get clean; \
     go install mvdan.cc/gofumpt@latest;
 
 WORKDIR /go/src/kraftkit.sh
 
+COPY . .
+COPY ./buildenvs/myself/kraftkit_pipeline_config.yaml /root/.config/kraftkit/config.yaml
+
 ENV GOROOT=/usr/local/go
 ENV PATH=$PATH:/go/src/kraftkit.sh/dist
+
+# Build the binary
+RUN set -xe; \
+    make kraft; \
+    kraft -h;
+
+# Pull manifests - might fail
+RUN set -xe; \
+    kraft pkg update --no-prompt --yes; \
+    sed -i 's/none/fancy/g' ${HOME}/.config/kraftkit/config.yaml;

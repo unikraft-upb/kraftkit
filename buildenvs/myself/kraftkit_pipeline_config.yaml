@@ -1,0 +1,21 @@
+no_prompt: true
+no_parallel: true
+no_emojis: true
+git_protocol: https
+runtime_dir: /var/kraftkit
+default_plat: ""
+default_arch: ""
+events_pidfile: /var/kraftkit/events.pid
+paths:
+  plugins: /root/.local/share/kraftkit/plugins
+  config: /root/.config/kraftkit
+  manifests: /root/.local/share/kraftkit/manifests
+  sources: /root/.local/share/kraftkit/sources
+log:
+  level: warn
+  timestamps: false
+  type: none
+unikraft:
+  manifests:
+      - https://github.com/unikraft/app-*
+      - https://manifests.kraftkit.sh/index.yaml
