@@ -1,0 +1,21 @@
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: staging
+
+name: Go Build
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    container: unikraft/kraftkit/myself:latest
+    name: Build Check
+    env:
+      RUNGOGENERATE: false
+    steps:
+      - name: Build Kraftkit
+        run: make
+
+      - name: Run Help Message
+        run: ./dist/kraftkit -h
+      
