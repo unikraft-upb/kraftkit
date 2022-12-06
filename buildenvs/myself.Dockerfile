@@ -64,4 +64,4 @@ RUN set -xe; \
 # Pull manifests - might fail
 RUN set -xe; \
     kraft pkg update --no-prompt --yes; \
-    sed -i 's/none/fancy/g' ${HOME}/.config/kraftkit/config.yaml;
+    sed -i 's/none/fancy/g' "${HOME}/.config/kraftkit/config.yaml";
