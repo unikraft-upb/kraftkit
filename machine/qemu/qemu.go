@@ -958,11 +958,9 @@ func (qd *QemuDriver) Pause(ctx context.Context, mid machine.MachineID) error {
 		return err
 	}
 
-	if err := qd.dopts.Store.SaveMachineState(mid, machine.MachineStatePaused); err != nil {
-		return err
-	}
+	err = qd.dopts.Store.SaveMachineState(mid, machine.MachineStatePaused)
 
-	return nil
+	return err
 }
 
 func (qd *QemuDriver) TailWriter(ctx context.Context, mid machine.MachineID, writer io.Writer) error {
@@ -1167,11 +1165,9 @@ func (qd *QemuDriver) Stop(ctx context.Context, mid machine.MachineID) error {
 		return err
 	}
 
-	if err := qd.dopts.Store.SaveMachineState(mid, machine.MachineStateExited); err != nil {
-		return err
-	}
+	err = qd.dopts.Store.SaveMachineState(mid, machine.MachineStateExited)
 
-	return nil
+	return err
 }
 
 func (qd *QemuDriver) Destroy(ctx context.Context, mid machine.MachineID) error {

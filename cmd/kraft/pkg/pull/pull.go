@@ -65,15 +65,12 @@ func New() *cobra.Command {
 }
 
 func (opts *Pull) Pre(cmd *cobra.Command, args []string) error {
-	if err := cli.MutuallyExclusive(
+	err := cli.MutuallyExclusive(
 		"the `--with-deps` option is not supported with `--no-deps`",
 		opts.WithDeps,
 		opts.NoDeps,
-	); err != nil {
-		return err
-	}
-
-	return nil
+	);
+	return err
 }
 
 func (opts *Pull) Run(cmd *cobra.Command, args []string) error {

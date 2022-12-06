@@ -48,9 +48,7 @@ func (opts *Source) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err = pm.AddSource(ctx, source); err != nil {
-		return err
-	}
+	err = pm.AddSource(ctx, source)
 
-	return nil
+	return err
 }
