@@ -145,28 +145,29 @@ ENV LANG=C.UTF-8
 RUN set -xe; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-      make \
-      libncursesw5-dev \
-      libncursesw5 \
-      libyaml-dev \
-      flex \
-      git \
-      wget \
-      patch \
-      gawk \
-      socat \
-      bison \
-      bindgen \
-      bzip2 \
-      unzip \
-      uuid-runtime \
+      make=4.3-4.1 \
+      libncursesw5-dev=6.2+20201114-2 \
+      libncursesw5=6.2+20201114-2 \
+      libyaml-dev=0.2.2-1 \
+      flex=2.6.4-8 \
+      git=1:2.30.2-1 \
+      wget=1.21-1+deb11u1 \
+      patch=2.7.6-7 \
+      gawki=1:5.1.0-1 \
+      socat=1.7.4.1-3 \
+      bison=2:3.7.5+dfsg-1 \
+      bindgen=0.55.1-3+b1 \
+      bzip2=1.0.8-4 \
+      unzip=6.0-26+deb11u1 \
+      uuid-runtime=2.36.1-8+deb11u1 \
       openssh-client \
-      autoconf \
-      xz-utils \
-      python3 \
-      libgit2-dev \
-      ca-certificates; \
+      autoconf=1:8.4p1-5+deb11u1 \
+      xz-utils=5.2.5-2.1~deb11u1 \
+      python3=3.9.2-3 \
+      libgit2-dev=1.1.0+dfsg.1-4 \
+      ca-certificates=20210119; \
     apt-get clean; \
+    rm -Rf /var/lib/apt/lists/*; \
     rm -Rf /var/cache/apt/*; \
     mkdir -p /usr/src/unikraft/unikraft; \
     mkdir -p /usr/src/unikraft/libs; \
